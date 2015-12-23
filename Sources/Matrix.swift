@@ -3,6 +3,10 @@
  https://github.com/ikuehne/Papaya - in AdjacencyMatrix.swift.
  */
 
+public enum MatrixProductError: ErrorType {
+    case UnmatchedSizes
+}
+
 /**
  Two-dimensional matrices laid out contiguously in memory.
 
@@ -219,9 +223,35 @@ extension Int: Ring {}
 extension Double: Ring {}
 
 /**
- Calculate a matrix product according to the naive algorithm.
+ Calculate a matrix product according to the naive algorithm, using the ring
+ operations of the type T.
+
+ - parameter a: an n-by-m matrix.
+ - parameter b: an m-by-p matrix.
+
+ - returns: the matrix product ab, an n-by-p matrix.
+
+ - throws: `MatrixProductError.UnmatchedSizes` if a does not have the same 
+   number of columns that b has rows.
  */
 func multiplyMatrices<T: Ring>(
-                         a: Matrix<T>, b: Matrix<T>) -> Matrix<T> {
-    return Matrix<T>(0, ncols: 0, repeatedValue: T())
+                    a: Matrix<T>, b: Matrix<T>) throws -> Matrix<T> {
+    guard a.nCols == b.nRows else {
+        throw MatrixProductError.UnmatchedSizes
+    }
+
+    let result = Matrix<T>(rows: a.nRows, cols: b.nCols,
+                           repeatedValue: a[0, 0] * b[0, 0])
+
+    for i in 0...result.nRows-1 {
+        for j in 0...result.nCols-1 {
+            var entry = a[i, 0] * b[0, j]
+            for k in 1...result.nCols-1 {
+                entry = entry + (a[i, k] * b[k, j])
+            }
+            result[i, j] = entry
+        }
+    }
+
+    return result
 }

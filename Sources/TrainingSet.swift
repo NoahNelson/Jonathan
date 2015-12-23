@@ -35,7 +35,7 @@ public protocol Categorical {
  A classification problem must specify three things - input dimension,
  number of output categories, and a list of valid output categories.
  */
-public struct Classifiable {
+public struct Classifiable<Category: Categorical> {
 
     /**
      Includes an input dimension - this is the number of doubles in an input
@@ -48,13 +48,6 @@ public struct Classifiable {
      categories you could put an input into.
      */
     let outputs: Int
-
-    /**
-     Includes the set of categories, which is anything that conforms to the
-     Categorical protocol.
-     */
-    let categories: Categorical
-
 }
 
 /**

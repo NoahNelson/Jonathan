@@ -22,6 +22,12 @@ private let ERRORPERCATEGORY = 0.04
 // The learning rate - how fast network weights change.
 private let LEARNINGRATE = -0.4
 
+// The number of hidden layers in each network
+private let HIDDENLAYERS = 0
+
+// The number of nodes in each hidden layer
+private let HIDDENNODES = 0
+
 /**
  Errors for neural networks
  */
@@ -106,48 +112,70 @@ private struct Neuron {
 
  Has code to train itself using backpropagation, given a test set.
  */
-public class NeuralNet {
+public class NeuralNet<Category: Categorical> {
     
     // TODO: figure out which of these need to be public.
     let inputs: Int
     let outputs: Int
     let hiddenLayers: Int
     let hiddenNodes: Int
-    private var weights: [Matrix<Double>]
-    private var neurons: [[Neuron]]
+    private var weights = [Matrix<Double>]()
+    private var neurons = [[Neuron]]()
 
     var error: Double
     let ErrPerCategory = ERRORPERCATEGORY
     
-    public init(problem: Classifiable, hiddenNodes: Int, layers: Int = 0) {
+    /**
+     Creates a new, untrained neural network to solve a given classification
+     problem. Number of inputs and outputs are given by that classification
+     problem. Number of hidden layers and nodes per hidden layer are constants
+     that are currently defined at the top of this file but will eventually
+     be read from a .jonrc file.
+
+     Untrained means random weights - likely to not be suited to solving the
+     classification problem until it's been fed a training set.
+
+     - parameter problem: A classifiable structure that describes the problem
+       this neural network ought to solve.
+     */
+    public init(problem: Classifiable<Category>) {
 
         inputs = problem.inputs
         outputs = problem.outputs
-        hiddenLayers = layers
-        self.hiddenNodes = hiddenNodes
+        hiddenLayers = HIDDENLAYERS
+        hiddenNodes = HIDDENNODES
         
-        // The max error, to ensure backprop always improves the first pass,
-        // is equal to the number of outpus times two.
+        // The max error, to ensure backprop always improves after the first
+        // pass, is equal to the number of outpus times two.
         error = 2.0 * Double(outputs)
 
-        if layers == 0 {
-            // Simple perceptron case, we only need weights from in to output.
-            var weights = [[Double]]()
-            for _ in 1...inputs {
-                var cols = [Double]()
-                for _ in 1...outputs {
-                    cols.append(myRandom() - 0.5)
+        var lastLayerSize = inputs
+
+        for i in 0...hiddenLayers {
+            // Create a 2d array of weights, should have lastLayerSize rows
+            // and nextLayerSize collumns
+            var newWeights = [[Double]]()
+            var nextLayerSize = 0
+            for _ in 1...lastLayerSize {
+                var row = [Double]()
+                nextLayerSize = (i == hiddenLayers ? outputs : hiddenNodes)
+                for _ in 1...nextLayerSize {
+                    row.append(myRandom() - 0.5)
                 }
-                weights.append(cols)
+                newWeights.append(row)
             }
-            self.weights = [Matrix<Double>(array: weights)!]
-            var outputNeurons = [Neuron]()
-            for _ in 1...outputs {
-                outputNeurons.append(Neuron())
+            weights.append(Matrix<Double>(array: newWeights)!)
+            
+            // And, add an array of neurons for this layer.
+            var nextLayer = [Neuron]()
+            for _ in 1...nextLayerSize {
+                nextLayer.append(Neuron())
             }
+            neurons.append(nextLayer)
+            lastLayerSize = nextLayerSize
         }
     }
-    
+    /*
     /**
      This will be useful for reading in networks from files, etc.
      */
@@ -166,88 +194,57 @@ public class NeuralNet {
             self.neurons.append(newLayer)
         }
     }
-    
-    
-    /* Increases the number of outputs. Maybe not useful in most applications.
-    func addNewOutput() {
-        
-        //  Sticks a new output in, with random weights
-        
-        if hiddenLayers == 0 {
-            self.neurons[hiddenLayers].append(Neuron(numWeights: inputs + 1))
-        }
-        
-        else {
-            self.neurons[hiddenLayers].append(
-                        Neuron(numWeights: nodesPerHiddenLayer + 1))
-        }
-        
-    }
     */
     
-    // Function to compute output from inputs, using current weights.
-    public func compute(inputs: [Double]) -> [Double] {
-                
-        if inputs.count != self.inputs {
-            print("different number of inputs than expected!")
-            return []
-            // TODO: Error-handling behavior
+    /**
+     Computes the most likely category of a given input array of Doubles.
+
+     - parameter input: An array of doubles representing an instance of the
+       classification problem.
+
+     - returns: The most likely category of the input.
+
+     - throws: `NeuralNetError.IncorrectInputSize`
+     */
+    public func compute(input: [Double]) throws -> Category {
+
+        guard input.count == inputs else {
+            print("input count is \(input.count) expecting \(inputs)")
+            throw NeuralNetError.IncorrectInputSize
         }
-        
-        
-        for (i, layer) in neurons.enumerate() {
-            if (i == 0) {
-                //  Run inputs into first hidden layer
-                for neuron in layer {
-                    neuron.activation = 0
-                    
-                    for (j, input) in inputs.enumerate() {
-                        neuron.activation += neuron.weights[j] * input
-                    }
-                    neuron.activation += (neuron.weights[neuron.weights.count-1]
-                                          * 1.0) //  Bias
-                    
-                    neuron.activation = sigmoid(neuron.activation)
-                }
+
+        let lastActivations = input
+        for i in 0...neurons.count-1 { // Not enumerate so we can mutate
+            let activationMatrix = Matrix<Double>(array: [lastActivations])!
+
+            let nextActivations = try! multiplyMatrices(activationMatrix,
+                                                   b: weights[i])
+
+            // Feed these activation values into the neuron layer
+            var layer = neurons[i]
+            for j in 0...layer.count-1 {
+                layer[j].activation = nextActivations[0, j]
+                layer[j].activate()
             }
-            
-            else {
-                
-                for neuron in layer {
-                    neuron.activation = 0
-                    
-                    if (neuron.weights.count-1 != neurons[i-1].count) {
-                    //print("Different number of weights than inputs in \(i)!")
-                        // Should throw an error
-                    }
-                    
-                    for (j, presynaptic) in neurons[i-1].enumerate() {
-                        neuron.activation += (neuron.weights[j] *
-                                              presynaptic.activation)
-                    }
-                    
-                    neuron.activation += (1.0 *
-                                neuron.weights[neuron.weights.count-1])
-                                // Add bias
-                    neuron.activation = sigmoid(neuron.activation)
-                }
-            }
-            
         }
         
         //  Now we can return the contents of the last layer of neurons -
         //  These are the output neurons.
         
-        var outputs = [Double]()
-        
-        for neuron in neurons[hiddenLayers] {
-            outputs.append(neuron.activation)
+        var (maxIndex, maxOutput) = (-1, -1.0)
+
+        for (i, output) in neurons[hiddenLayers].enumerate() {
+            print("output for case \(i) is \(output)")
+            if output.activation > maxOutput {
+                maxOutput = output.activation
+                maxIndex = i
+            }
         }
-        
-        return outputs
+
+        return Category(rawValue: maxIndex)!
     }
     
-    
+    /*
     private func trainingEpoch(testset: TestSet) -> Double {
         
         //  Performs one step of the backpropagation algorithm
@@ -355,4 +352,5 @@ public class NeuralNet {
             gens += 1
         }
     }
+    */
 }
