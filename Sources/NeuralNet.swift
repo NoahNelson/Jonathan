@@ -11,22 +11,22 @@ import Glibc
 import Darwin.C
 #endif
 
-// Constants - eventually these will be read in from a file
+// Constants - eventually these will be read in from an rc file
 
 // The starting value of a network's error.
-let MAXERROR: Double = 1000
+private let MAXERROR: Double = 1000
 
 // An acceptable amount of error per each category.
-let ERRORPERCATEGORY = 0.04
+private let ERRORPERCATEGORY = 0.04
 
 // The learning rate - how fast network weights change.
-let LEARNINGRATE = -0.4
+private let LEARNINGRATE = -0.4
 
 /**
  Errors for neural networks
  */
 public enum NeuralNetError: ErrorType {
-    case BadInputLength
+    case IncorrectInputSize
 }
 
 /**
@@ -70,7 +70,8 @@ private func sigmoid(x: Double) -> Double {
 
  Stores weights of its inputs, and can compute the sigmoid of its activation.
  */
-private class Neuron {
+/*
+private struct Neuron {
     
     /**
      Weights on the input synapses are represented as doubles.
@@ -124,30 +125,31 @@ private class Neuron {
      - parameter inc: the amount by which to change the weight. May be
        positive or negative.
      */
-    private func incrementWeight(index: Int, inc: Double) {
+    private mutating func incrementWeight(index: Int, inc: Double) {
         weights[index] += inc
     }
     
 }
+*/
 
 /**
  An artificial neural network object
  */
-public class Network {
+public class NeuralNet {
     
-    /***********  
-     * An artificial neural network object for classification problems.
-     *  Computes a function from an array of doubles to another array of
-     *  doubles, which may have different sizes.
-     *  The input represents an instance of a classification problem, and the
-     *  output represents probability of that instance being a given class.
-     *  Has code to train itself using backpropagation, given a test set.
-     ***********/
+    /**
+     An artificial neural network object for classification problems.
+     Computes a function from an array of doubles to another array of
+     doubles, which may have different sizes.
+     The input represents an instance of a classification problem, and the
+     output represents probability of that instance being a given class.
+     Has code to train itself using backpropagation, given a test set.
+     */
     
     var inputs: Int
     var hiddenLayers: Int
-    var nodesPerHiddenLayer: Int
-    private var neurons: [[Neuron]]
+    var hiddenNodes: Int
+    private var weights: [Matrix<Double>]
     var error: Double = MAXERROR
     var ErrorThresholdPerCategory = ERRORPERCATEGORY
     

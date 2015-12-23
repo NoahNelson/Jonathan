@@ -66,40 +66,53 @@ public struct Classifiable {
  It consists of an input array of doubles, and the output that that array
  should map to.
  */
-public struct TrainingCase<T: Categorical> {
+public struct TrainingInstance<T: Categorical> {
+
     let input: [Double]
 
     let category: T
 }
-    
-public class TestSet {
-    
-    //  A class for classification problem training data.
-    //  Has a mapping of example inputs to their category.
-    
-    var categories: [Int: [[Double]]]
-    // Should this be private? And just define an iterator or something for
-    // training code to use? Leave internal for now.
-    
-    public init() { categories = [:] }
-    
-    public func addPathToCategory(path: [Double], category: Int) {
 
-        // Either the category number already exists in the testset, or not.
-        if let _ = categories[category] {
-            categories[category]!.append(path) // Better way to write this?
-        }
-        else {
-            categories[category] = [path]
-        }
-        
-    }
+/**
+ A structure representing a set of training data.
+
+ Includes a read-only array of training cases, and some methods to add cases,
+ as well as the input and output numbers.
+ */
+public struct TrainingSet<T: Categorical> {
+
+    let inputs: Int
+
+    let outputs: Int
     
+    /**
+     A public get private set array of training instances.
+
+     Currently, you can add instances but you can't remove them.
+     */
+    public private(set) var instances = [TrainingInstance<T>]()
+
+    /**
+     Adds a training instance to the training set.
+
+     - parameter instance: The TrainingInstance to add to the dataset.
+
+     - throws: `NeuralNetError.IncorrectInputSize` if the training instance has
+       the incorrect size of input array.
+     */
+    public mutating func addInstance(instance: TrainingInstance<T>) throws {
+        guard inputs == instance.input.count else {
+            throw NeuralNetError.IncorrectInputSize
+        }
+
+        instances.append(instance)
+    }
+
     // TODO: ReadFromFile function
     
     public func show() {
-        for (category, items) in categories {
-            print("\(category) : \(items)") ;
+        for instance in instances {
+            print("\(instance.input) : \(instance.category)")
         }
     }
     
