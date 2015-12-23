@@ -198,3 +198,30 @@ final class Matrix<T> {
         }
     }
 }
+
+/**
+ A protocol for an algebraic ring, a requirement for matrix multiplication.
+ */
+protocol Ring {
+
+    /**
+     We must have + and * operations defined to have a ring.
+     */
+    func +(lhs: Self, rhs: Self) -> Self
+    func *(lhs: Self, rhs: Self) -> Self
+
+    /**
+     Remember that other properties must hold, like * must distribute over +.
+     */
+}
+
+extension Int: Ring {}
+extension Double: Ring {}
+
+/**
+ Calculate a matrix product according to the naive algorithm.
+ */
+func multiplyMatrices<T: Ring>(
+                         a: Matrix<T>, b: Matrix<T>) -> Matrix<T> {
+    return Matrix<T>(0, ncols: 0, repeatedValue: T())
+}

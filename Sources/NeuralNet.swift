@@ -68,20 +68,19 @@ private func sigmoid(x: Double) -> Double {
 /**
  An artificial Neuron, to be arrayed in a network.
 
- Stores weights of its inputs, and can compute the sigmoid of its activation.
+ Stores an activation value as well as error and deltas used in backprop.
  */
-/*
 private struct Neuron {
-    
-    /**
-     Weights on the input synapses are represented as doubles.
-     */
-    private var weights = [Double]()
 
     /**
      The current activation of the neuron
      */
     private var activation: Double = 0
+
+    /**
+     Run the activation through the sigmoid function.
+     */
+    private mutating func activate() { activation = sigmoid(activation) }
     
     /**
      Error between the desired and actual output of the neuron
@@ -92,105 +91,65 @@ private struct Neuron {
      Variable representing deltaTotalError/deltaNeuronActivation,
      used in backprop algorithm
      */
-    private var delta: Double = 0 //  This is ∂Etotal/∂neuron.activation.
-    
-    /**
-     Initializes a new neuron with random incoming weights.
-
-     - parameter numWeights: integer of how many incoming connections to
-       give the neuron.
-     */
-    private init(numWeights: Int) {
-        for _ in 1...numWeights {
-            let random = myRandom() - 0.5
-            self.weights.append(random)
-        }
-    }
-    
-    /**
-     Initializes a new neuron with a given array of weights.
-
-     Used for reading in a saved or pre-trained network.
-
-     - parameter withWeights: an array of double weights to give the neuron
-     */
-    private init(withWeights: [Double]) {
-        self.weights = withWeights
-    }
-    
-    /**
-     Increments the weight at a given index by an amount.
-
-     - parameter index: the index of the weight to change
-     - parameter inc: the amount by which to change the weight. May be
-       positive or negative.
-     */
-    private mutating func incrementWeight(index: Int, inc: Double) {
-        weights[index] += inc
-    }
+    private var delta: Double = 0
     
 }
-*/
 
 /**
- An artificial neural network object
+ An artificial neural network object for classification problems.
+
+ Computes a function from an array of doubles to a set of categories,
+ which may have different sizes.
+
+ The input represents an instance of a classification problem, and the output
+ represents highest probability of that instance being a given class.
+
+ Has code to train itself using backpropagation, given a test set.
  */
 public class NeuralNet {
     
-    /**
-     An artificial neural network object for classification problems.
-     Computes a function from an array of doubles to another array of
-     doubles, which may have different sizes.
-     The input represents an instance of a classification problem, and the
-     output represents probability of that instance being a given class.
-     Has code to train itself using backpropagation, given a test set.
-     */
-    
-    var inputs: Int
-    var hiddenLayers: Int
-    var hiddenNodes: Int
+    // TODO: figure out which of these need to be public.
+    let inputs: Int
+    let outputs: Int
+    let hiddenLayers: Int
+    let hiddenNodes: Int
     private var weights: [Matrix<Double>]
-    var error: Double = MAXERROR
-    var ErrorThresholdPerCategory = ERRORPERCATEGORY
+    private var neurons: [[Neuron]]
+
+    var error: Double
+    let ErrPerCategory = ERRORPERCATEGORY
     
-    public init(numberOfInputs inputs: Int, hiddensPerLayer hiddenNodes: Int,
-         numberOfOutputs outputs: Int, numberOfHiddenLayers layers: Int = 0) {
+    public init(problem: Classifiable, hiddenNodes: Int, layers: Int = 0) {
+
+        inputs = problem.inputs
+        outputs = problem.outputs
+        hiddenLayers = layers
+        self.hiddenNodes = hiddenNodes
         
-        var lastLayerSize = inputs
-        
-        self.inputs = inputs
-        self.hiddenLayers = layers
-        self.nodesPerHiddenLayer = hiddenNodes
-        
-        self.neurons = []
-        
-        //  Create hidden layers.
-        
-        if (hiddenLayers > 0) {
-            for _ in 1...hiddenLayers {
-                var newLayer = [Neuron]()
-                for _ in 1...nodesPerHiddenLayer {
-                    newLayer.append(Neuron(numWeights: lastLayerSize + 1))
-                    //  Plus one for bias
+        // The max error, to ensure backprop always improves the first pass,
+        // is equal to the number of outpus times two.
+        error = 2.0 * Double(outputs)
+
+        if layers == 0 {
+            // Simple perceptron case, we only need weights from in to output.
+            var weights = [[Double]]()
+            for _ in 1...inputs {
+                var cols = [Double]()
+                for _ in 1...outputs {
+                    cols.append(myRandom() - 0.5)
                 }
-                
-                self.neurons.append(newLayer)
-                
-                lastLayerSize = nodesPerHiddenLayer
+                weights.append(cols)
+            }
+            self.weights = [Matrix<Double>(array: weights)!]
+            var outputNeurons = [Neuron]()
+            for _ in 1...outputs {
+                outputNeurons.append(Neuron())
             }
         }
-        
-        //  Create output layer.
-        
-        var outputLayer = [Neuron]()
-        for _ in 1...outputs {
-            outputLayer.append(Neuron(numWeights: lastLayerSize + 1))
-        }
-        
-        self.neurons.append(outputLayer)
     }
     
-    /*  This will be useful for reading in networks from files, etc.
+    /**
+     This will be useful for reading in networks from files, etc.
      */
     init(withWeights weights: [[[Double]]]) {
         self.neurons = []
