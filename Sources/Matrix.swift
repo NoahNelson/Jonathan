@@ -234,9 +234,10 @@ extension Double: Ring {}
  - throws: `MatrixProductError.UnmatchedSizes` if a does not have the same 
    number of columns that b has rows.
  */
-func multiplyMatrices<T: Ring>(
+func matrixProduct<T: Ring>(
                     a: Matrix<T>, b: Matrix<T>) throws -> Matrix<T> {
     guard a.nCols == b.nRows else {
+        print("bad sizes \(a.nRows) by \(a.nCols) and \(b.nRows) by \(b.nCols)")
         throw MatrixProductError.UnmatchedSizes
     }
 
@@ -246,7 +247,7 @@ func multiplyMatrices<T: Ring>(
     for i in 0...result.nRows-1 {
         for j in 0...result.nCols-1 {
             var entry = a[i, 0] * b[0, j]
-            for k in 1...result.nCols-1 {
+            for k in 1...a.nCols-1 {
                 entry = entry + (a[i, k] * b[k, j])
             }
             result[i, j] = entry

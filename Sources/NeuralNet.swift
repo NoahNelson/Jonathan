@@ -23,10 +23,10 @@ private let ERRORPERCATEGORY = 0.04
 private let LEARNINGRATE = -0.4
 
 // The number of hidden layers in each network
-private let HIDDENLAYERS = 0
+private let HIDDENLAYERS = 1
 
 // The number of nodes in each hidden layer
-private let HIDDENNODES = 0
+private let HIDDENNODES = 4
 
 /**
  Errors for neural networks
@@ -75,8 +75,11 @@ private func sigmoid(x: Double) -> Double {
  An artificial Neuron, to be arrayed in a network.
 
  Stores an activation value as well as error and deltas used in backprop.
+
+ I changed this to a class to get reference behavior, which allows for easy
+ mutations and stuff.
  */
-private struct Neuron {
+private class Neuron {
 
     /**
      The current activation of the neuron
@@ -86,7 +89,7 @@ private struct Neuron {
     /**
      Run the activation through the sigmoid function.
      */
-    private mutating func activate() { activation = sigmoid(activation) }
+    private func activate() { activation = sigmoid(activation) }
     
     /**
      Error between the desired and actual output of the neuron
@@ -140,6 +143,8 @@ public class NeuralNet<Category: Categorical> {
      */
     public init(problem: Classifiable<Category>) {
 
+        srand(UInt32(time(nil)))
+
         inputs = problem.inputs
         outputs = problem.outputs
         hiddenLayers = HIDDENLAYERS
@@ -160,7 +165,7 @@ public class NeuralNet<Category: Categorical> {
                 var row = [Double]()
                 nextLayerSize = (i == hiddenLayers ? outputs : hiddenNodes)
                 for _ in 1...nextLayerSize {
-                    row.append(myRandom() - 0.5)
+                    row.append(myRandom())
                 }
                 newWeights.append(row)
             }
@@ -209,7 +214,6 @@ public class NeuralNet<Category: Categorical> {
     public func compute(input: [Double]) throws -> Category {
 
         guard input.count == inputs else {
-            print("input count is \(input.count) expecting \(inputs)")
             throw NeuralNetError.IncorrectInputSize
         }
 
@@ -217,7 +221,7 @@ public class NeuralNet<Category: Categorical> {
         for i in 0...neurons.count-1 { // Not enumerate so we can mutate
             let activationMatrix = Matrix<Double>(array: [lastActivations])!
 
-            let nextActivations = try! multiplyMatrices(activationMatrix,
+            let nextActivations = try matrixProduct(activationMatrix,
                                                    b: weights[i])
 
             // Feed these activation values into the neuron layer
@@ -234,7 +238,6 @@ public class NeuralNet<Category: Categorical> {
         var (maxIndex, maxOutput) = (-1, -1.0)
 
         for (i, output) in neurons[hiddenLayers].enumerate() {
-            print("output for case \(i) is \(output)")
             if output.activation > maxOutput {
                 maxOutput = output.activation
                 maxIndex = i
