@@ -33,3 +33,7 @@ let matrix6 = try! matrixProduct(matrix4, b: matrix5)
 print(matrix6.contents)
 // brief tests of matrix multiplication, works
 */
+let a = Matrix<Int>(array: [[1, 2]])!
+let b = Matrix<Int>(array: [[0, 1, -2, 4], [-3, 0, 1, 1]])! // 2 x 4
+let c = try! matrixProduct(a, b: b)
+print(c.contents)

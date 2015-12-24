@@ -169,7 +169,9 @@ public class NeuralNet<Category: Categorical> {
                 }
                 newWeights.append(row)
             }
-            weights.append(Matrix<Double>(array: newWeights)!)
+            let matrix = Matrix<Double>(array: newWeights)!
+            weights.append(matrix)
+            print("weights from \(i) to \(i+1) is \(matrix.nRows) by \(matrix.nCols)")
             
             // And, add an array of neurons for this layer.
             var nextLayer = [Neuron]()
@@ -217,12 +219,13 @@ public class NeuralNet<Category: Categorical> {
             throw NeuralNetError.IncorrectInputSize
         }
 
-        let lastActivations = input
+        var lastActivations = Matrix<Double>(array: [input])!
         for i in 0...neurons.count-1 { // Not enumerate so we can mutate
-            let activationMatrix = Matrix<Double>(array: [lastActivations])!
+            print("activationMatrix \(i) is \(lastActivations.nRows) by \(lastActivations.nCols)")
 
-            let nextActivations = try matrixProduct(activationMatrix,
+            let nextActivations = try! matrixProduct(lastActivations,
                                                    b: weights[i])
+            print("multiplying it by a \(weights[i].nRows) by \(weights[i].nCols)")
 
             // Feed these activation values into the neuron layer
             var layer = neurons[i]
@@ -230,6 +233,7 @@ public class NeuralNet<Category: Categorical> {
                 layer[j].activation = nextActivations[0, j]
                 layer[j].activate()
             }
+            lastActivations = nextActivations
         }
         
         //  Now we can return the contents of the last layer of neurons -
