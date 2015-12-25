@@ -161,7 +161,7 @@ public class NeuralNet<Category: Categorical> {
             // and nextLayerSize collumns
             var newWeights = [[Double]]()
             var nextLayerSize = 0
-            for _ in 1...lastLayerSize {
+            for _ in 0...lastLayerSize { // Range is +1 for bias
                 var row = [Double]()
                 nextLayerSize = (i == hiddenLayers ? outputs : hiddenNodes)
                 for _ in 1...nextLayerSize {
@@ -219,7 +219,10 @@ public class NeuralNet<Category: Categorical> {
         }
 
         var lastActivations = Matrix<Double>(array: [input])!
+        
         for i in 0..<neurons.count { // Not enumerate so we can mutate
+
+            lastActivations.addColumn(1.0)
 
             let nextActivations = try! matrixProduct(lastActivations,
                                                    b: weights[i])
@@ -268,7 +271,7 @@ public class NeuralNet<Category: Categorical> {
         // Adjust weights in output layer
         for i in 0..<outputs {
             let neuron = neurons[hiddenLayers][i]
-            let target: Double = (i == instance.category.rawValue ? 1 : 0)
+            let target = (i == instance.category.rawValue ? 1.0 : 0.0)
             let output = neuron.activation
 
             neuron.delta = output - target
@@ -276,11 +279,16 @@ public class NeuralNet<Category: Categorical> {
             error += (0.5 * neuron.delta * neuron.delta)
 
             for j in 0..<weights[hiddenLayers].nRows {
-                let preactivation = (
-                    hiddenLayers == 0 ? instance.input[j] : neurons[
-                    hiddenLayers-1][j].activation
-                )
-                weights[hiddenLayers][i, j] += (LEARNINGRATE * preactivation *
+                let preactivation: Double
+                if j == weights[hiddenLayers].nRows-1 {
+                    preactivation = 1.0
+                } else {
+                    preactivation = (
+                        hiddenLayers == 0 ? instance.input[j] : neurons[
+                        hiddenLayers-1][j].activation
+                    )
+                }
+                weights[hiddenLayers][j, i] += (LEARNINGRATE * preactivation *
                                                 neuron.delta * (1 - output) *
                                                 output)
             }
@@ -300,14 +308,21 @@ public class NeuralNet<Category: Categorical> {
                                      weights[i+1][j, k])
                 }
 
-                for k in 0..<(i == 0 ? inputs : neurons[i-1].count) {
+                let ins = (i == 0 ? inputs : neurons[i-1].count)
+
+                for k in 0..<ins {
                     let preactivation = (
                         i == 0 ? instance.input[k] : neurons[i-1][k].activation
                     )
-                    weights[i][i, k] += (LEARNINGRATE * neuron.delta *
+                    weights[i][k, j] += (LEARNINGRATE * neuron.delta *
                                          (1 - neuron.activation) *
                                          neuron.activation * preactivation)
                 }
+                
+                // Adjust bias weight
+                weights[i][ins, j] += (LEARNINGRATE * neuron.delta *
+                                       (1 - neuron.activation) *
+                                       neuron.activation * 1.0)
             }
         }
 

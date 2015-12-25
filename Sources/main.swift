@@ -4,10 +4,11 @@ enum BitCases: Int, Categorical {
 
 let xor = Classifiable<BitCases>(inputs: 2, outputs: 2)
 
-let cases = [TrainingInstance<BitCases>(input: [0.0, 0.0], category: .Zero),
+let cases = [TrainingInstance<BitCases>(input: [1.0, 1.0], category: .Zero),
+             TrainingInstance<BitCases>(input: [0.0, 0.0], category: .Zero),
              TrainingInstance<BitCases>(input: [0.0, 1.0], category: .One),
-             TrainingInstance<BitCases>(input: [1.0, 0.0], category: .One),
-             TrainingInstance<BitCases>(input: [1.0, 1.0], category: .Zero)]
+             TrainingInstance<BitCases>(input: [1.0, 0.0], category: .One)]
+            
 
 var xorTraining = TrainingSet<BitCases>(inputs: 2, outputs: 2, instances: cases)
 
