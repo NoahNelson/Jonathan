@@ -21,6 +21,13 @@ for input in inputs {
     print(try! network.compute(input))
 }
 
+try! network.backprop(xorTraining)
+
+for input in inputs {
+    print(input)
+    print(try! network.compute(input))
+}
+
 /*let matrix1 = Matrix<Int>(array: [[1, 2], [2, 1]])!
 let matrix2 = Matrix<Int>(array: [[3, -1], [0, 2]])!
 

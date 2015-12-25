@@ -27,6 +27,11 @@ public protocol Categorical {
      */
     init?(rawValue: Int)
 
+    /**
+     We must be able to get the raw value of a category in the numbering.
+     */
+    var rawValue: Int { get }
+
 }
 
 /**
@@ -59,11 +64,11 @@ public struct Classifiable<Category: Categorical> {
  It consists of an input array of doubles, and the output that that array
  should map to.
  */
-public struct TrainingInstance<T: Categorical> {
+public struct TrainingInstance<Category: Categorical> {
 
     let input: [Double]
 
-    let category: T
+    let category: Category
 }
 
 /**

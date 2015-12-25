@@ -20,13 +20,13 @@ private let MAXERROR: Double = 1000
 private let ERRORPERCATEGORY = 0.04
 
 // The learning rate - how fast network weights change.
-private let LEARNINGRATE = -0.4
+private let LEARNINGRATE = -0.5
 
 // The number of hidden layers in each network
 private let HIDDENLAYERS = 1
 
 // The number of nodes in each hidden layer
-private let HIDDENNODES = 4
+private let HIDDENNODES = 2
 
 /**
  Errors for neural networks
@@ -124,7 +124,7 @@ public class NeuralNet<Category: Categorical> {
     let hiddenNodes: Int
     private var weights = [Matrix<Double>]()
     private var neurons = [[Neuron]]()
-
+    
     var error: Double
     let ErrPerCategory = ERRORPERCATEGORY
     
@@ -171,7 +171,6 @@ public class NeuralNet<Category: Categorical> {
             }
             let matrix = Matrix<Double>(array: newWeights)!
             weights.append(matrix)
-            print("weights from \(i) to \(i+1) is \(matrix.nRows) by \(matrix.nCols)")
             
             // And, add an array of neurons for this layer.
             var nextLayer = [Neuron]()
@@ -220,16 +219,14 @@ public class NeuralNet<Category: Categorical> {
         }
 
         var lastActivations = Matrix<Double>(array: [input])!
-        for i in 0...neurons.count-1 { // Not enumerate so we can mutate
-            print("activationMatrix \(i) is \(lastActivations.nRows) by \(lastActivations.nCols)")
+        for i in 0..<neurons.count { // Not enumerate so we can mutate
 
             let nextActivations = try! matrixProduct(lastActivations,
                                                    b: weights[i])
-            print("multiplying it by a \(weights[i].nRows) by \(weights[i].nCols)")
 
             // Feed these activation values into the neuron layer
             var layer = neurons[i]
-            for j in 0...layer.count-1 {
+            for j in 0..<layer.count {
                 layer[j].activation = nextActivations[0, j]
                 layer[j].activate()
             }
@@ -250,6 +247,97 @@ public class NeuralNet<Category: Categorical> {
 
         return Category(rawValue: maxIndex)!
     }
+
+    /**
+     Runs a training instance through the network and adjusts weights.
+
+     Returns the error - the delta between expected and actual output.
+     */
+    private func adjustWeightsOnInstance(
+                 instance: TrainingInstance<Category>) throws -> Double {
+
+        //print("current weights:")
+        for weightMatrix in weights {
+         //   print(weightMatrix.contents)
+        }
+
+        var error: Double = 0.0
+
+        try compute(instance.input)
+
+        // Adjust weights in output layer
+        for i in 0..<outputs {
+            let neuron = neurons[hiddenLayers][i]
+            let target: Double = (i == instance.category.rawValue ? 1 : 0)
+            let output = neuron.activation
+
+            neuron.delta = output - target
+
+            error += (0.5 * neuron.delta * neuron.delta)
+
+            for j in 0..<weights[hiddenLayers].nRows {
+                let preactivation = (
+                    hiddenLayers == 0 ? instance.input[j] : neurons[
+                    hiddenLayers-1][j].activation
+                )
+                weights[hiddenLayers][i, j] += (LEARNINGRATE * preactivation *
+                                                neuron.delta * (1 - output) *
+                                                output)
+            }
+        }
+
+        // Adjust weights of the hidden layers
+
+        for i in (0..<hiddenLayers).reverse() {
+            for j in 0..<neurons[i].count {
+                let neuron = neurons[i][j]
+                neuron.delta = 0
+                
+                for k in 0..<neurons[i+1].count {
+                    let postpartner = neurons[i+1][k]
+                    neuron.delta += (postpartner.delta * postpartner.activation
+                                     * (1 - postpartner.activation) *
+                                     weights[i+1][j, k])
+                }
+
+                for k in 0..<(i == 0 ? inputs : neurons[i-1].count) {
+                    let preactivation = (
+                        i == 0 ? instance.input[k] : neurons[i-1][k].activation
+                    )
+                    weights[i][i, k] += (LEARNINGRATE * neuron.delta *
+                                         (1 - neuron.activation) *
+                                         neuron.activation * preactivation)
+                }
+            }
+        }
+
+        return error
+    }
+
+    /**
+     Performs one epoch of the backpropagation algorithm on a given training
+     set, returning the total error.
+     */
+    private func trainingEpoch(
+            training: TrainingSet<Category>) throws -> Double {
+        var error = 0.0
+        for instance in training.instances {
+            error += try adjustWeightsOnInstance(instance)
+        }
+        return error
+    }
+
+    /**
+     Performs the backpropagation algorithm until the error is acceptable.
+     */
+    public func backprop(training: TrainingSet<Category>) throws {
+        let acceptableError = ERRORPERCATEGORY * Double(outputs)
+        while error > acceptableError {
+            error = try trainingEpoch(training)
+            print("error is \(error)")
+        }
+    }
+
     
     /*
     private func trainingEpoch(testset: TestSet) -> Double {
