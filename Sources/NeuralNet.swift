@@ -238,30 +238,7 @@ public class NeuralNet<Category: Categorical> {
             lastLayerSize = nextLayerSize
         }
     }
-    
-    /**
-     This will be useful for reading in networks from files, etc.
-
-     For now, its a test method with a lot of information hard-coded.
-     */
-    init(withWeights weights: [Matrix<Double>]) {
-        inputs = 2
-        outputs = 2
-        hiddenLayers = 1
-        hiddenNodes = 2
-        error = 4
-        learningRate = LEARNINGRATE
-        errorPerCategory = ERRORPERCATEGORY
-        self.weights = weights
-        for _ in 1...2 {
-            var layer = [Neuron]()
-            layer.append(Neuron())
-            layer.append(Neuron())
-            neurons.append(layer)
-        }
-    }
-    
-    
+       
     /**
      Computes the most likely category of a given input array of Doubles.
 
@@ -279,10 +256,8 @@ public class NeuralNet<Category: Categorical> {
         }
 
         var lastActivations = Matrix<Double>(array: [input])!
-        //print("last activations:")
-        //print(lastActivations.contents)
         
-        for i in 0..<neurons.count { // Not enumerate so we can mutate
+        for (i, layer) in neurons.enumerate() {
 
             lastActivations.addColumn(1.0)
 
@@ -292,15 +267,13 @@ public class NeuralNet<Category: Categorical> {
 
             // Feed these activation values into the neuron layer
             var activations = [Double]()
-            for (j, neuron) in neurons[i].enumerate() {
+            for (j, neuron) in layer.enumerate() {
                 neuron.activation = nextActivations[0, j]
                 neuron.activate() // sigmoid
                 activations.append(neuron.activation)
             }
 
             lastActivations = Matrix<Double>(array: [activations])!
-            //print("next activations:")
-            //print(lastActivations.contents)
         }
         
         //  Now we can return the contents of the last layer of neurons -
@@ -319,16 +292,10 @@ public class NeuralNet<Category: Categorical> {
     }
 
     /**
-     reset all neurons.
-     */
-    private func flush() {
-        for layer in neurons {
-            for neuron in layer {
-                neuron.reset()
-            }
-        }
-    }
+     Internal show method, for debugging purposes.
 
+     Prints all of the weight matrices of the network.
+     */
     func show() {
         print("current weights:")
         for weightMatrix in weights {
@@ -343,7 +310,6 @@ public class NeuralNet<Category: Categorical> {
      */
     func adjustWeightsOnInstance(
                  instance: TrainingInstance<Category>) throws -> Double {
-        //show()
 
         var error: Double = 0.0
 
@@ -407,8 +373,6 @@ public class NeuralNet<Category: Categorical> {
                                        neuron.activation * 1.0)
             }
         }
-        //show()
-        //flush()
         return error
     }
 
@@ -435,7 +399,7 @@ public class NeuralNet<Category: Categorical> {
         let acceptableError = errorPerCategory * Double(outputs)
         while error > acceptableError {
             error = try trainingEpoch(training)
-            print("error is \(error)")
+            //print("error is \(error)")
         }
     }
 

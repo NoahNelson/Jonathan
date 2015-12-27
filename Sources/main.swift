@@ -30,11 +30,6 @@ for input in inputs {
 }
 
 
-let matrix1 = Matrix<Double>(array: [[1.0, 0.5], [0.4, 0.1], [0.0, 0.7]])!
-let matrix2 = Matrix<Double>(array: [[0.9, 0.4], [0.0, 0.7], [0.2, 0.0]])!
-let network2 = NeuralNet<BitCases>(withWeights: [matrix1, matrix2])
-try! network2.adjustWeightsOnInstance(cases[3])
-
 /*let matrix1 = Matrix<Int>(array: [[1, 2], [2, 1]])!
 let matrix2 = Matrix<Int>(array: [[3, -1], [0, 2]])!
 
