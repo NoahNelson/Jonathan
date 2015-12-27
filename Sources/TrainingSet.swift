@@ -91,6 +91,21 @@ public struct TrainingSet<T: Categorical> {
     public private(set) var instances = [TrainingInstance<T>]()
 
     /**
+     A function which gets all instances of a given category, as integer.
+     */
+    public func allOfCategory(category: T) -> [TrainingInstance<T>] {
+        var result = [TrainingInstance<T>]()
+
+        for instance in instances {
+            if instance.category.rawValue == category.rawValue {
+                result.append(instance)
+            }
+        }
+
+        return result
+    }
+
+    /**
      Adds a training instance to the training set.
 
      - parameter instance: The TrainingInstance to add to the dataset.

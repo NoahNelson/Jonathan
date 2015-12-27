@@ -29,6 +29,12 @@ for input in inputs {
     print(try! network.compute(input))
 }
 
+
+let matrix1 = Matrix<Double>(array: [[1.0, 0.5], [0.4, 0.1], [0.0, 0.7]])!
+let matrix2 = Matrix<Double>(array: [[0.9, 0.4], [0.0, 0.7], [0.2, 0.0]])!
+let network2 = NeuralNet<BitCases>(withWeights: [matrix1, matrix2])
+try! network2.adjustWeightsOnInstance(cases[3])
+
 /*let matrix1 = Matrix<Int>(array: [[1, 2], [2, 1]])!
 let matrix2 = Matrix<Int>(array: [[3, -1], [0, 2]])!
 
@@ -41,7 +47,3 @@ let matrix6 = try! matrixProduct(matrix4, b: matrix5)
 print(matrix6.contents)
 // brief tests of matrix multiplication, works
 */
-let a = Matrix<Int>(array: [[1, 2]])!
-let b = Matrix<Int>(array: [[0, 1, -2, 4], [-3, 0, 1, 1]])! // 2 x 4
-let c = try! matrixProduct(a, b: b)
-print(c.contents)

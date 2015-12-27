@@ -20,7 +20,7 @@ private let MAXERROR: Double = 1000
 private let ERRORPERCATEGORY = 0.04
 
 // The learning rate - how fast network weights change.
-private let LEARNINGRATE = -0.5
+private let LEARNINGRATE = -0.3
 
 // The number of hidden layers in each network
 private let HIDDENLAYERS = 1
@@ -101,6 +101,15 @@ private class Neuron {
      used in backprop algorithm
      */
     private var delta: Double = 0
+
+    /**
+     Reset the neuron to its empty initialized state.
+     */
+    private func reset() {
+        activation = 0
+        error = 0
+        delta = 0
+    }
     
 }
 
@@ -157,15 +166,14 @@ public class NeuralNet<Category: Categorical> {
         var lastLayerSize = inputs
 
         for i in 0...hiddenLayers {
-            // Create a 2d array of weights, should have lastLayerSize rows
+            // Create a 2d array of weights, should have lastLayerSize+1 rows
             // and nextLayerSize collumns
             var newWeights = [[Double]]()
-            var nextLayerSize = 0
+            let nextLayerSize = (i == hiddenLayers ? outputs : hiddenNodes)
             for _ in 0...lastLayerSize { // Range is +1 for bias
                 var row = [Double]()
-                nextLayerSize = (i == hiddenLayers ? outputs : hiddenNodes)
                 for _ in 1...nextLayerSize {
-                    row.append(myRandom())
+                    row.append(myRandom() - 0.5)
                 }
                 newWeights.append(row)
             }
@@ -181,26 +189,27 @@ public class NeuralNet<Category: Categorical> {
             lastLayerSize = nextLayerSize
         }
     }
-    /*
+    
     /**
      This will be useful for reading in networks from files, etc.
+
+     For now, its a test method with a lot of information hard-coded.
      */
-    init(withWeights weights: [[[Double]]]) {
-        self.neurons = []
-        inputs = weights[0][0].count - 1
-        hiddenLayers = weights.count - 1
-        nodesPerHiddenLayer = (hiddenLayers == 0 ? 0 :
-                               weights[hiddenLayers][0].count - 1) // Bias!
-        
-        for layer in weights {
-            var newLayer = [Neuron]()
-            for neuron in layer {
-                newLayer.append(Neuron(withWeights: neuron))
-            }
-            self.neurons.append(newLayer)
+    init(withWeights weights: [Matrix<Double>]) {
+        inputs = 2
+        outputs = 2
+        hiddenLayers = 1
+        hiddenNodes = 2
+        error = 4
+        self.weights = weights
+        for _ in 1...2 {
+            var layer = [Neuron]()
+            layer.append(Neuron())
+            layer.append(Neuron())
+            neurons.append(layer)
         }
     }
-    */
+    
     
     /**
      Computes the most likely category of a given input array of Doubles.
@@ -219,6 +228,8 @@ public class NeuralNet<Category: Categorical> {
         }
 
         var lastActivations = Matrix<Double>(array: [input])!
+        //print("last activations:")
+        //print(lastActivations.contents)
         
         for i in 0..<neurons.count { // Not enumerate so we can mutate
 
@@ -227,13 +238,18 @@ public class NeuralNet<Category: Categorical> {
             let nextActivations = try! matrixProduct(lastActivations,
                                                    b: weights[i])
 
+
             // Feed these activation values into the neuron layer
-            var layer = neurons[i]
-            for j in 0..<layer.count {
-                layer[j].activation = nextActivations[0, j]
-                layer[j].activate()
+            var activations = [Double]()
+            for (j, neuron) in neurons[i].enumerate() {
+                neuron.activation = nextActivations[0, j]
+                neuron.activate() // sigmoid
+                activations.append(neuron.activation)
             }
-            lastActivations = nextActivations
+
+            lastActivations = Matrix<Double>(array: [activations])!
+            //print("next activations:")
+            //print(lastActivations.contents)
         }
         
         //  Now we can return the contents of the last layer of neurons -
@@ -252,17 +268,31 @@ public class NeuralNet<Category: Categorical> {
     }
 
     /**
+     reset all neurons.
+     */
+    private func flush() {
+        for layer in neurons {
+            for neuron in layer {
+                neuron.reset()
+            }
+        }
+    }
+
+    func show() {
+        print("current weights:")
+        for weightMatrix in weights {
+            print(weightMatrix.contents)
+        }
+    }
+
+    /**
      Runs a training instance through the network and adjusts weights.
 
      Returns the error - the delta between expected and actual output.
      */
-    private func adjustWeightsOnInstance(
+    func adjustWeightsOnInstance(
                  instance: TrainingInstance<Category>) throws -> Double {
-
-        //print("current weights:")
-        for weightMatrix in weights {
-         //   print(weightMatrix.contents)
-        }
+        //show()
 
         var error: Double = 0.0
 
@@ -291,6 +321,7 @@ public class NeuralNet<Category: Categorical> {
                 weights[hiddenLayers][j, i] += (LEARNINGRATE * preactivation *
                                                 neuron.delta * (1 - output) *
                                                 output)
+                // A lot of this product is repeated. Store?
             }
         }
 
@@ -325,7 +356,8 @@ public class NeuralNet<Category: Categorical> {
                                        neuron.activation * 1.0)
             }
         }
-
+        //show()
+        //flush()
         return error
     }
 
@@ -336,8 +368,11 @@ public class NeuralNet<Category: Categorical> {
     private func trainingEpoch(
             training: TrainingSet<Category>) throws -> Double {
         var error = 0.0
-        for instance in training.instances {
-            error += try adjustWeightsOnInstance(instance)
+        for i in 0..<outputs {
+            let instances = training.allOfCategory(Category(rawValue: i)!)
+            for instance in instances {
+                error += try adjustWeightsOnInstance(instance)
+            }
         }
         return error
     }
