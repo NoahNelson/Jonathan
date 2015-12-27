@@ -53,6 +53,7 @@ public struct Classifiable<Category: Categorical> {
      categories you could put an input into.
      */
     let outputs: Int
+
 }
 
 /**

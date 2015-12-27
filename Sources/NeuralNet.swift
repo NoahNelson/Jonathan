@@ -11,10 +11,8 @@ import Glibc
 import Darwin.C
 #endif
 
-// Constants - eventually these will be read in from an rc file
-
-// The starting value of a network's error.
-private let MAXERROR: Double = 1000
+// Constants - these can be given to your networks as an instance of
+// the neuralnetconfig structure.
 
 // An acceptable amount of error per each category.
 private let ERRORPERCATEGORY = 0.04
@@ -67,9 +65,48 @@ private func sigmoid(x: Double) -> Double {
 
 
 /**
- Network classes
+ Network types
  */
 
+/**
+ A collection of configurable neural network properties, such as what
+ learning rate to use and how many hidden layers to have.
+
+ These can be included in the problem given to the NeuralNet initializer,
+ or not. If one is not included, the network will use the default values
+ at the top of this file.
+ */
+public struct NeuralNetConfig {
+
+    /**
+     Learning rate of the network. How fast the weights change during
+     training. Too high, and backpropagation will jump around without
+     settling in an error minimum. Too low, and it may asymptotically
+     slow down before reaching one.
+     */
+    let learningRate: Double
+
+    /**
+     Amount of hidden layers in the network.
+     */
+    let hiddenLayers: Int
+
+    /**
+     Number of nodes in each hidden layer of the network.
+     If hiddenLayers is zero this can be anything.
+     */
+    let hiddenNodes: Int
+
+    /**
+     An acceptable amount of error per category. The network will be done
+     training once the average error in each category is below this number.
+
+     In other words, acceptable error is this times the number of categories,
+     and the network is trained once the error across the test set is below
+     that number.
+     */
+    let errorPerCategory: Double
+}
 
 /**
  An artificial Neuron, to be arrayed in a network.
@@ -131,11 +168,12 @@ public class NeuralNet<Category: Categorical> {
     let outputs: Int
     let hiddenLayers: Int
     let hiddenNodes: Int
+    let learningRate: Double
+    let errorPerCategory: Double
     private var weights = [Matrix<Double>]()
     private var neurons = [[Neuron]]()
     
     var error: Double
-    let ErrPerCategory = ERRORPERCATEGORY
     
     /**
      Creates a new, untrained neural network to solve a given classification
@@ -150,14 +188,25 @@ public class NeuralNet<Category: Categorical> {
      - parameter problem: A classifiable structure that describes the problem
        this neural network ought to solve.
      */
-    public init(problem: Classifiable<Category>) {
+    public init(problem: Classifiable<Category>,
+                config: NeuralNetConfig? = nil) {
 
         srand(UInt32(time(nil)))
 
         inputs = problem.inputs
         outputs = problem.outputs
-        hiddenLayers = HIDDENLAYERS
-        hiddenNodes = HIDDENNODES
+
+        if let values = config {
+            hiddenLayers = values.hiddenLayers
+            hiddenNodes = values.hiddenNodes
+            learningRate = values.learningRate
+            errorPerCategory = values.errorPerCategory
+        } else {
+            hiddenLayers = HIDDENLAYERS
+            hiddenNodes = HIDDENNODES
+            learningRate = LEARNINGRATE
+            errorPerCategory = ERRORPERCATEGORY
+        }
         
         // The max error, to ensure backprop always improves after the first
         // pass, is equal to the number of outpus times two.
@@ -201,6 +250,8 @@ public class NeuralNet<Category: Categorical> {
         hiddenLayers = 1
         hiddenNodes = 2
         error = 4
+        learningRate = LEARNINGRATE
+        errorPerCategory = ERRORPERCATEGORY
         self.weights = weights
         for _ in 1...2 {
             var layer = [Neuron]()
@@ -318,7 +369,7 @@ public class NeuralNet<Category: Categorical> {
                         hiddenLayers-1][j].activation
                     )
                 }
-                weights[hiddenLayers][j, i] += (LEARNINGRATE * preactivation *
+                weights[hiddenLayers][j, i] += (learningRate * preactivation *
                                                 neuron.delta * (1 - output) *
                                                 output)
                 // A lot of this product is repeated. Store?
@@ -345,13 +396,13 @@ public class NeuralNet<Category: Categorical> {
                     let preactivation = (
                         i == 0 ? instance.input[k] : neurons[i-1][k].activation
                     )
-                    weights[i][k, j] += (LEARNINGRATE * neuron.delta *
+                    weights[i][k, j] += (learningRate * neuron.delta *
                                          (1 - neuron.activation) *
                                          neuron.activation * preactivation)
                 }
                 
                 // Adjust bias weight
-                weights[i][ins, j] += (LEARNINGRATE * neuron.delta *
+                weights[i][ins, j] += (learningRate * neuron.delta *
                                        (1 - neuron.activation) *
                                        neuron.activation * 1.0)
             }
@@ -381,121 +432,11 @@ public class NeuralNet<Category: Categorical> {
      Performs the backpropagation algorithm until the error is acceptable.
      */
     public func backprop(training: TrainingSet<Category>) throws {
-        let acceptableError = ERRORPERCATEGORY * Double(outputs)
+        let acceptableError = errorPerCategory * Double(outputs)
         while error > acceptableError {
             error = try trainingEpoch(training)
             print("error is \(error)")
         }
     }
 
-    
-    /*
-    private func trainingEpoch(testset: TestSet) -> Double {
-        
-        //  Performs one step of the backpropagation algorithm
-        //  on a given test set.
-        //  Returns the error of the network.
-        
-        
-        var totalError: Double = 0
-        
-        for (category, inputs) in testset.categories {
-            for input in inputs {
-                                
-                compute(input)
-                
-                //  Adjust weights of the output layer
-                for (i, neuron) in neurons[hiddenLayers].enumerate() {
-                    let target = (category == i ? 1.0 : 0.0)
-                    let output = neuron.activation
-                    neuron.error = 0.5 * (target - output) * (target - output)
-                    // Does this need to be stored in neuron?
-                    
-                    totalError += neuron.error
-                    
-                    neuron.delta = output - target
-                    
-                    for (j, prepartner) in neurons[hiddenLayers-1].enumerate() {
-                        neuron.incrementWeight(j, inc: (LEARNINGRATE *
-                                prepartner.activation * (output - target) *
-                                (1 - output) * output))
-                    }
-                    
-                }
-                
-                //  Adjust weights of the hidden layers
-                
-                //  TODO: This for loop style will be removed from language
-                for var i = hiddenLayers-1; i >= 0; --i {
-                    for (j, neuron) in neurons[i].enumerate() {
-                        let outputH = neuron.activation
-                        
-                        var sum = 0.0
-                        
-                        //  Calculate sum
-                        
-                        for (_, postpartner) in neurons[i+1].enumerate() {
-                            let outputI = postpartner.activation
-                            sum += (postpartner.delta * postpartner.weights[j]
-                                    * outputI * (1 - outputI))
-                        }
-                        
-                        neuron.delta = sum
-                        
-                        
-                        if (i == 0) {
-                            for (k, input) in input.enumerate() {
-                                
-                                neuron.incrementWeight(k, inc: (LEARNINGRATE *
-                                        sum * (1 - outputH) * outputH * input))
-                            }
-                        }
-                        else {
-                            for (k, prepartner) in neurons[i-1].enumerate() {
-                                
-                                neuron.incrementWeight(k, inc: (LEARNINGRATE *
-                                        sum * (1 - outputH) * outputH *
-                                        prepartner.activation))
-                            }
-                        }
-                        
-                    }
-                }
-                
-            }
-        }
-        
-        self.error = totalError
-        return error ;
-        
-    }
-    
-    public func backprop(testset: TestSet) {
-        
-        //  Performs backpropagation algorithm on the network, given a test set.
-        
-        var currentError = 1000.0 ;
-        var lastError: Double = 1001.0 ;
-        var staleness = 0 ;
-        var gens = 0 ;
-        let ErrorThreshold = (ErrorThresholdPerCategory *
-                              Double(testset.categories.count))
-        
-        while (currentError > ErrorThreshold) {
-            
-            currentError = trainingEpoch(testset) ;
-            
-            if currentError >= lastError {
-                staleness += 1 ;
-            }
-            else {
-                staleness = 0 ;
-            }
-            
-            lastError = currentError ;
-            
-            gens += 1
-        }
-    }
-    */
 }
